@@ -1,44 +1,49 @@
 #!/usr/bin/env python
-import subprocess, re, sys
+import subprocess, re, sys, platform
 from subprocess import *
 
 print 'Searching for flash videos...'
 print '(Please make sure the video is completely buffered before running)'
 
+# Find filename
 if len(sys.argv) < 2:
 	filename = 'video.flv'
 else:
 	filename = sys.argv[1]
 
 # Regex to parse lsof string
-parse = re.compile('chromium- ([0-9]+).+?([0-9]+).+,.+ .+ .+/tmp/Flash.+ \(deleted\)')
+parse = re.compile('.+ ([0-9]+).+?([0-9]+).+,.+ .+ .+/tmp/Flash.+ \(deleted\)')
 
-# Get the pids for the web browser
-pidof = Popen(['pidof', 'chromium-browser'], stdout=PIPE)
-pids = pidof.communicate()[0][:-1].split(' ')
-
-# Run lsof, find all files attached to chromium*
-lsof =  Popen(['lsof', '-c', 'chromium-'], stdout=PIPE)
-
-# Grep the results we actually want out, this is a bit redundent with the regex
-grep =  Popen(['grep', 'Flash'], stdin=lsof.stdout, stdout=PIPE)
+# Get the pids for the flash player
+if platform.architecture()[0] == '64bit': 
+	print 'Looking for videos in 64bit Flash'
+	lsof =  Popen(['lsof', '-c', 'npviewer.bin'], stdout=PIPE)
+elif platform.architecture()[0] == '32bit':
+	print 'Looking for videos in 32bit Flash'
+	lsof =  Popen(['lsof', '-c', 'chromium-'], stdout=PIPE)
+else:
+	print "I'm not sure how to find flash on your architecture"
+	sys.exit()
 
 # Processes is the stdout from grep
-processes = grep.communicate()[0]
+processes = lsof.communicate()[0]
 
 # Regex out all the data we cat about
 try:
-	video = parse.findall(processes)[0]
+	videos = parse.findall(processes)
 except IndexError:
 	print 'No flash videos found'
 	sys.exit()
 
-# Find the processes folder in /proc/ with the dettached file handle and cat it
-cat = Popen(['cat', '/proc/' + video[0] + '/fd/' + video[1]], stdout=PIPE)
+extra = ''
+for x,video in enumerate(videos):
+	if len(videos)-1: extra = '_' + x
+	# Find the processes folder in /proc/ with the dettached file handle and cat it
+	cat = Popen(['cat', '/proc/' + video[0] + '/fd/' + video[1]], stdout=PIPE)
 
-# Redirect stdout to a video file
-file = open(filename, 'w')
-file.write(cat.communicate()[0])
-file.close()
+	# Redirect stdout to a video file
+	file = open(filename + extra, 'w')
+	file.write(cat.communicate()[0])
+	file.close()
 
-print 'Video saved to %s' % filename
+	print 'Video saved to %s' % filename

@@ -1,1 +1,1 @@
-This script locates chromium's PID and finds the detached file handlers which Flash uses to hide temporary files then saves that detached file to a file for playback later. Make sure to let the video buffer completely before running!
+This script locates Flash Player's PID and finds the detached file handlers which Flash uses to hide temporary files then saves that detached file to a file for playback later. Make sure to let the video buffer completely before running!
