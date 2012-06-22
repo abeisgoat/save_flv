@@ -5,6 +5,16 @@ from subprocess import *
 print 'Searching for flash videos...'
 print '(Please make sure the video is completely buffered before running)'
 
+def get64bitHandles():
+	print 'Looking for videos in 64bit Flash'
+	lsof =  Popen(['lsof', '-c', 'npviewer.bin'], stdout=PIPE)
+	return lsof.communicate()[0]
+
+def get32bitHandles():
+	print 'Looking for videos in 32bit Flash'
+	lsof =  Popen(['lsof', '-c', 'chromium-'], stdout=PIPE)
+	return lsof.communicate()[0]
+
 # Find filename
 if len(sys.argv) < 2:
 	filename = 'video.flv'
@@ -12,21 +22,17 @@ else:
 	filename = sys.argv[1]
 
 # Regex to parse lsof string
-parse = re.compile('.+ ([0-9]+).+?([0-9]+).+,.+ .+ .+/tmp/Flash.+ \(deleted\)')
+parse = re.compile('.+? ([0-9]+).+?([0-9]+).+,.+ .+ .+/tmp/Flash.+ \(deleted\)')
 
 # Get the pids for the flash player
-if platform.architecture()[0] == '64bit': 
-	print 'Looking for videos in 64bit Flash'
-	lsof =  Popen(['lsof', '-c', 'npviewer.bin'], stdout=PIPE)
-elif platform.architecture()[0] == '32bit':
-	print 'Looking for videos in 32bit Flash'
-	lsof =  Popen(['lsof', '-c', 'chromium-'], stdout=PIPE)
+cpu_type = platform.architecture()[0] 
+if cpu_type == '64bit': # Apparently they changed how 64bit flash is, so now your videos may be tied to chromium
+	processes = get64bitHandles()
+if cpu_type == '32bit' or not len(processes):
+	processes = get32bitHandles()
 else:
 	print "I'm not sure how to find flash on your architecture"
 	sys.exit()
-
-# Processes is the stdout from grep
-processes = lsof.communicate()[0]
 
 # Regex out all the data we cat about
 try:
@@ -37,7 +43,7 @@ except IndexError:
 
 extra = ''
 for x,video in enumerate(videos):
-	if len(videos)-1: extra = '_' + x
+	if len(videos)-1: extra = '_' + str(x)
 	# Find the processes folder in /proc/ with the dettached file handle and cat it
 	cat = Popen(['cat', '/proc/' + video[0] + '/fd/' + video[1]], stdout=PIPE)
 
